@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-main: #06080D;
+    --surface-main: #111722;
+    --surface-elevated: #161F2E;
+    --surface-border: #1E283A;
+    --primary-accent: #00F59B;
+    --secondary-accent: #00F0FF;
+    --warning-accent: #FFD600;
+    --text-primary: #F5F7FA;
+    --text-secondary: #929BAA;
+  }
+
+  body {
+    background-color: #06080D;
+    color: #F5F7FA;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* Accessibility focus ring */
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px #06080D, 0 0 0 4px #00F59B;
+  }
+}
+
+/* Glassmorphism & Surface Utilities */
+.glass-panel {
+  background: rgba(17, 23, 34, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(30, 40, 58, 0.8);
+}
+
+.glass-panel-elevated {
+  background: rgba(22, 31, 46, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(46, 61, 86, 0.6);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+}
+
+.glass-panel-neon {
+  background: rgba(17, 23, 34, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 245, 155, 0.3);
+  box-shadow: 0 0 25px -5px rgba(0, 245, 155, 0.15);
+}
+
+.glass-panel-cyan {
+  background: rgba(17, 23, 34, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 25px -5px rgba(0, 240, 255, 0.15);
+}
+
+.glass-panel-warning {
+  background: rgba(17, 23, 34, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 214, 0, 0.3);
+  box-shadow: 0 0 25px -5px rgba(255, 214, 0, 0.15);
+}
+
+/* Text glow utilities */
+.glow-text-green {
+  text-shadow: 0 0 14px rgba(0, 245, 155, 0.55);
+}
+
+.glow-text-cyan {
+  text-shadow: 0 0 14px rgba(0, 240, 255, 0.55);
+}
+
+.glow-text-yellow {
+  text-shadow: 0 0 14px rgba(255, 214, 0, 0.55);
+}
+
+/* Custom Cyber & Fintech Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #06080D;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E283A;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00F59B;
+}
+
+/* Smooth motion card animations */
+.card-interactive {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s ease;
+}
+
+.card-interactive:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 245, 155, 0.4);
+  box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.6), 0 0 20px -3px rgba(0, 245, 155, 0.18);
+}
