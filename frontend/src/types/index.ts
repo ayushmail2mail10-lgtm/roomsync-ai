@@ -53,11 +53,36 @@ export interface AdminReportItem {
   target_is_active: boolean;
 }
 
+export interface RoomListing {
+  id: number;
+  property_id: number;
+  title: string;
+  room_type: string;
+  rent: number;
+  deposit: number;
+  is_vacant: boolean;
+  available_from: string;
+  furnishing?: string;
+  amenities: string[];
+  created_at?: string;
+}
+
 export interface PropertyListing {
   id: number;
+  owner_id?: number;
+  owner?: {
+    id: number;
+    name: string;
+    email: string;
+    avatar_url?: string;
+    trust_score: number;
+    verified: boolean;
+  };
   title: string;
+  description?: string;
   city: string;
   neighborhood: string;
+  address?: string;
   property_type: string;
   total_bedrooms: number;
   available_bedrooms: number;
@@ -68,26 +93,58 @@ export interface PropertyListing {
   image_urls: string[];
   preferred_gender: string;
   food_preference: string;
-  status: 'active' | 'occupied' | 'draft';
+  rules?: string[];
+  status: 'active' | 'occupied' | 'draft' | 'archived';
+  rooms?: RoomListing[];
   applications_count: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface TenantApplication {
   id: number;
-  listing_id: number;
+  property_id: number;
+  property_title?: string;
+  property_city?: string;
+  property_neighborhood?: string;
+  property_monthly_rent?: number;
+  property_image?: string;
+  room_id?: number | null;
+  room_title?: string | null;
+  room_rent?: number | null;
   applicant_id: number;
-  applicant_name: string;
-  applicant_email: string;
-  applicant_avatar?: string;
-  applicant_occupation: string;
-  applicant_company: string;
-  compatibility_score: number;
-  status: 'pending' | 'accepted' | 'rejected';
-  applied_at: string;
+  applicant?: {
+    id: number;
+    name: string;
+    email: string;
+    avatar_url?: string;
+    occupation?: string;
+    company?: string;
+    trust_score: number;
+    compatibility_score?: number;
+  };
+  owner_id: number;
+  owner_name?: string;
+  status: 'pending' | 'shortlisted' | 'accepted' | 'rejected' | 'withdrawn';
   message?: string;
-  budget_max: number;
-  trust_score: number;
+  move_in_date?: string;
+  proposed_budget?: number;
+  created_at: string;
+  updated_at?: string;
+
+  // Compatibility helpers
+  listing_id?: number;
+  applicant_name?: string;
+  applicant_email?: string;
+  applicant_avatar?: string;
+  applicant_occupation?: string;
+  applicant_company?: string;
+  compatibility_score?: number;
+  applied_at?: string;
+  budget_max?: number;
+  trust_score?: number;
 }
+
 
 export interface Profile {
   id: number;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Building2,
@@ -18,9 +18,11 @@ import {
   ChevronRight,
   TrendingUp,
   FileText,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../services/api';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
@@ -36,85 +38,10 @@ interface PropertyOwnerDashboardProps {
 export const PropertyOwnerDashboard: React.FC<PropertyOwnerDashboardProps> = ({ onNavigate }) => {
   const { user } = useAuth();
 
-  // Initial realistic sample properties for owner (e.g. Bangalore & Mumbai listings)
-  const [properties, setProperties] = useState<PropertyListing[]>([
-    {
-      id: 101,
-      title: "Prestige Silver Oak - Luxury 3 BHK",
-      city: "Bengaluru",
-      neighborhood: "Whitefield / ITPL Main Rd",
-      property_type: "3 BHK Luxury Apartment",
-      total_bedrooms: 3,
-      available_bedrooms: 1,
-      monthly_rent: 45000,
-      deposit_amount: 150000,
-      furnishing_status: "Fully Furnished",
-      amenities: ["Swimming Pool", "Gym", "High-speed Wi-Fi", "100% Power Backup", "Covered Parking", "Cook Service"],
-      image_urls: [
-        "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80"
-      ],
-      preferred_gender: "Any",
-      food_preference: "Flexible",
-      status: "active",
-      applications_count: 3
-    },
-    {
-      id: 102,
-      title: "Hiranandani Gardens - Regent Hill 2 BHK",
-      city: "Mumbai",
-      neighborhood: "Powai",
-      property_type: "2 BHK High-Rise",
-      total_bedrooms: 2,
-      available_bedrooms: 0,
-      monthly_rent: 62000,
-      deposit_amount: 200000,
-      furnishing_status: "Semi Furnished",
-      amenities: ["Clubhouse", "Lake View Balcony", "Piped Gas", "Security 24/7"],
-      image_urls: [
-        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80"
-      ],
-      preferred_gender: "Working Professionals",
-      food_preference: "Vegetarian Preferred",
-      status: "occupied",
-      applications_count: 0
-    }
-  ]);
-
-  // Initial tenant applications awaiting owner decision
-  const [applications, setApplications] = useState<TenantApplication[]>([
-    {
-      id: 201,
-      listing_id: 101,
-      applicant_id: 2,
-      applicant_name: "Rohan Verma",
-      applicant_email: "rohan.verma@roomsync.ai",
-      applicant_avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80",
-      applicant_occupation: "Backend Platform Engineer",
-      applicant_company: "Razorpay",
-      compatibility_score: 94,
-      status: "pending",
-      applied_at: "2026-11-08T10:30:00Z",
-      message: "Looking for immediate move-in. Clean, non-smoker, hybrid work schedule. Verified on Razorpay domain.",
-      budget_max: 25000,
-      trust_score: 92
-    },
-    {
-      id: 202,
-      listing_id: 101,
-      applicant_id: 4,
-      applicant_name: "Ananya Sharma",
-      applicant_email: "ananya.sharma@roomsync.ai",
-      applicant_avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80",
-      applicant_occupation: "Product Designer",
-      applicant_company: "CRED",
-      compatibility_score: 91,
-      status: "pending",
-      applied_at: "2026-11-07T14:15:00Z",
-      message: "Passionate about keeping home quiet and clean. Need dedicated space for remote work.",
-      budget_max: 28000,
-      trust_score: 94
-    }
-  ]);
+  const [properties, setProperties] = useState<PropertyListing[]>([]);
+  const [applications, setApplications] = useState<TenantApplication[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Add Property Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -126,6 +53,26 @@ export const PropertyOwnerDashboard: React.FC<PropertyOwnerDashboardProps> = ({ 
   const [newBedrooms, setNewBedrooms] = useState('3');
   const [newAvailable, setNewAvailable] = useState('1');
   const [newFurnishing, setNewFurnishing] = useState<'Fully Furnished' | 'Semi Furnished' | 'Unfurnished'>('Fully Furnished');
+  const [isSubmittingProp, setIsSubmittingProp] = useState(false);
+
+  const fetchOwnerData = async () => {
+    try {
+      const [propsData, appsData] = await Promise.all([
+        api.getMyProperties(),
+        api.getIncomingApplications(),
+      ]);
+      setProperties(propsData);
+      setApplications(appsData);
+    } catch (e) {
+      console.error("Error fetching property owner dashboard data:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOwnerData();
+  }, []);
 
   // Stats calculation
   const totalProperties = properties.length;
@@ -136,43 +83,55 @@ export const PropertyOwnerDashboard: React.FC<PropertyOwnerDashboardProps> = ({ 
   const totalMonthlyRent = properties.reduce((acc, p) => acc + p.monthly_rent, 0);
   const pendingAppsCount = applications.filter(a => a.status === 'pending').length;
 
-  const handleApplicationAction = (appId: number, decision: 'accepted' | 'rejected') => {
-    setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: decision } : a));
+  const handleApplicationAction = async (appId: number, decision: 'accepted' | 'rejected') => {
+    setActionError(null);
+    try {
+      await api.decideApplication(appId, decision);
+      await fetchOwnerData();
+    } catch (err: any) {
+      setActionError(err.message || "Failed to update application decision");
+    }
   };
 
-  const handleCreateProperty = (e: React.FormEvent) => {
+  const handleCreateProperty = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newRent) return;
+    setIsSubmittingProp(true);
+    setActionError(null);
 
-    const newProp: PropertyListing = {
-      id: Date.now(),
-      title: newTitle.trim(),
-      city: newCity,
-      neighborhood: newLocality.trim() || 'HSR Layout Sector 1',
-      property_type: `${newBedrooms} BHK Apartment`,
-      total_bedrooms: Number(newBedrooms),
-      available_bedrooms: Number(newAvailable),
-      monthly_rent: Number(newRent),
-      deposit_amount: Number(newDeposit) || Number(newRent) * 3,
-      furnishing_status: newFurnishing,
-      amenities: ["Wi-Fi", "Power Backup", "Security 24/7"],
-      image_urls: [
-        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80"
-      ],
-      preferred_gender: "Any",
-      food_preference: "Flexible",
-      status: Number(newAvailable) > 0 ? 'active' : 'occupied',
-      applications_count: 0
-    };
+    try {
+      await api.createProperty({
+        title: newTitle.trim(),
+        city: newCity,
+        neighborhood: newLocality.trim() || 'HSR Layout Sector 1',
+        property_type: `${newBedrooms} BHK Apartment`,
+        total_bedrooms: Number(newBedrooms),
+        available_bedrooms: Number(newAvailable),
+        monthly_rent: Number(newRent),
+        deposit_amount: Number(newDeposit) || Number(newRent) * 3,
+        furnishing_status: newFurnishing,
+        amenities: ["High-speed Wi-Fi", "100% Power Backup", "Security 24/7", "Covered Parking"],
+        image_urls: [
+          "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80"
+        ],
+        preferred_gender: "Any",
+        food_preference: "Flexible",
+        status: Number(newAvailable) > 0 ? 'active' : 'occupied'
+      });
 
-    setProperties([newProp, ...properties]);
-    setIsAddModalOpen(false);
-    // Reset form
-    setNewTitle('');
-    setNewRent('');
-    setNewDeposit('');
-    setNewLocality('');
+      setIsAddModalOpen(false);
+      setNewTitle('');
+      setNewRent('');
+      setNewDeposit('');
+      setNewLocality('');
+      await fetchOwnerData();
+    } catch (err: any) {
+      setActionError(err.message || "Failed to create property listing");
+    } finally {
+      setIsSubmittingProp(false);
+    }
   };
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -298,29 +257,45 @@ export const PropertyOwnerDashboard: React.FC<PropertyOwnerDashboardProps> = ({ 
             </div>
 
             <div className="space-y-3">
-              {applications.map((app) => (
+              {actionError && (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{actionError}</span>
+                </div>
+              )}
+
+              {applications.map((app) => {
+                const applicantName = app.applicant?.name || app.applicant_name || "Applicant";
+                const applicantAvatar = app.applicant?.avatar_url || app.applicant_avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80";
+                const applicantOccupation = app.applicant?.occupation || app.applicant_occupation || "Working Professional";
+                const applicantCompany = app.applicant?.company || app.applicant_company || "Verified Tech";
+                const budgetMax = app.proposed_budget || app.budget_max || 25000;
+                const trustScore = app.applicant?.trust_score || app.trust_score || 85;
+                const compScore = app.applicant?.compatibility_score || app.compatibility_score || 90;
+
+                return (
                 <Card key={app.id} variant="glass" className="p-5 relative overflow-hidden">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <img
-                        src={app.applicant_avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80"}
-                        alt={app.applicant_name}
+                        src={applicantAvatar}
+                        alt={applicantName}
                         className="w-12 h-12 rounded-xl object-cover border border-[#1E283A]"
                       />
                       <div>
                         <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-[#F5F7FA]">{app.applicant_name}</h4>
+                          <h4 className="text-sm font-bold text-[#F5F7FA]">{applicantName}</h4>
                           <span className="px-1.5 py-0.2 rounded bg-[#00F59B]/10 text-[#00F59B] text-[10px] font-mono flex items-center gap-0.5">
-                            <Sparkles className="w-3 h-3" /> {app.compatibility_score}% AI Synergy
+                            <Sparkles className="w-3 h-3" /> {compScore}% AI Synergy
                           </span>
                         </div>
                         <p className="text-xs text-[#929BAA]">
-                          {app.applicant_occupation} • <span className="text-[#00F0FF]">{app.applicant_company}</span>
+                          {applicantOccupation} • <span className="text-[#00F0FF]">{applicantCompany}</span>
                         </p>
                         <div className="flex items-center gap-3 text-[11px] font-mono text-[#5F697A] mt-1">
-                          <span>Max Budget: ₹{app.budget_max.toLocaleString('en-IN')}/mo</span>
+                          <span>Max Budget: ₹{budgetMax.toLocaleString('en-IN')}/mo</span>
                           <span>•</span>
-                          <span className="text-[#00F59B]">Trust Score: {app.trust_score}/100</span>
+                          <span className="text-[#00F59B]">Trust Score: {trustScore}/100</span>
                         </div>
                       </div>
                     </div>
@@ -365,7 +340,9 @@ export const PropertyOwnerDashboard: React.FC<PropertyOwnerDashboardProps> = ({ 
                     </div>
                   )}
                 </Card>
-              ))}
+                );
+              })}
+
 
               {applications.length === 0 && (
                 <div className="py-8 text-center text-xs text-[#929BAA] bg-[#111722] rounded-2xl border border-[#1E283A]">

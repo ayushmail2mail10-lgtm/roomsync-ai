@@ -98,4 +98,37 @@ export const api = {
   toggleUserStatus: (userId: number) => fetchWithAuth(`/admin/users/${userId}/toggle-status`, { method: 'POST' }),
   approveVerification: (userId: number) => fetchWithAuth(`/admin/verifications/${userId}/approve`, { method: 'POST' }),
   getAdminReports: () => fetchWithAuth('/admin/reports'),
+
+  // Properties & Rooms (Phase 4)
+  getProperties: (filters: Record<string, any> = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') {
+        params.append(k, String(v));
+      }
+    });
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return fetchWithAuth(`/properties${query}`);
+  },
+  getProperty: (id: number) => fetchWithAuth(`/properties/${id}`),
+  getMyProperties: () => fetchWithAuth('/properties/my-listings'),
+  createProperty: (data: any) => fetchWithAuth('/properties', { method: 'POST', body: JSON.stringify(data) }),
+  updateProperty: (id: number, data: any) => fetchWithAuth(`/properties/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  archiveProperty: (id: number) => fetchWithAuth(`/properties/${id}`, { method: 'DELETE' }),
+  addRoomToProperty: (propertyId: number, data: any) => fetchWithAuth(`/properties/${propertyId}/rooms`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // Applications (Phase 4)
+  applyForProperty: (propertyId: number, data: { room_id?: number | null; message?: string; move_in_date?: string; proposed_budget?: number }) =>
+    fetchWithAuth(`/applications/properties/${propertyId}/apply`, { method: 'POST', body: JSON.stringify(data) }),
+  getMyApplications: () => fetchWithAuth('/applications/my-applications'),
+  getIncomingApplications: (filters: { property_id?: number; status_filter?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (filters.property_id) params.append('property_id', String(filters.property_id));
+    if (filters.status_filter) params.append('status_filter', filters.status_filter);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return fetchWithAuth(`/applications/incoming${query}`);
+  },
+  decideApplication: (applicationId: number, decision: 'accepted' | 'rejected' | 'shortlisted') =>
+    fetchWithAuth(`/applications/${applicationId}/decision`, { method: 'POST', body: JSON.stringify({ decision }) }),
 };
+

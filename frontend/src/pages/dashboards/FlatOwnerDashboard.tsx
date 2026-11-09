@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
-import { DashboardSummary, FlatGroup, Expense, RoommateMatch, SafeMeet } from '../../types';
+import { DashboardSummary, FlatGroup, Expense, RoommateMatch, SafeMeet, TenantApplication, PropertyListing } from '../../types';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
@@ -47,7 +47,10 @@ export const FlatOwnerDashboard: React.FC<FlatOwnerDashboardProps> = ({ onNaviga
   const [recentExpenses, setRecentExpenses] = useState<Expense[]>([]);
   const [topMatches, setTopMatches] = useState<RoommateMatch[]>([]);
   const [safeMeets, setSafeMeets] = useState<SafeMeet[]>([]);
+  const [myProperties, setMyProperties] = useState<PropertyListing[]>([]);
+  const [incomingApplications, setIncomingApplications] = useState<TenantApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Modals state
   const [selectedMatch, setSelectedMatch] = useState<RoommateMatch | null>(null);
@@ -56,19 +59,6 @@ export const FlatOwnerDashboard: React.FC<FlatOwnerDashboardProps> = ({ onNaviga
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
   const [isUpiOpen, setIsUpiOpen] = useState(false);
-
-  // Vacant room state
-  const [vacantRooms, setVacantRooms] = useState([
-    {
-      id: 1,
-      title: "Private Master Bedroom with Attached Balcony & Western Bath",
-      rent: 18000,
-      deposit: 50000,
-      status: "Vacant - Looking for Flatmate",
-      availableFrom: "Immediate",
-      furnishing: "Fully Furnished (Queen Bed, Wardrobe, AC, Work Desk)"
-    }
-  ]);
 
   // Flat household rules
   const householdRules = [
@@ -82,14 +72,19 @@ export const FlatOwnerDashboard: React.FC<FlatOwnerDashboardProps> = ({ onNaviga
 
   const fetchFlatData = async () => {
     try {
-      const [sumData, grpData, matchData, meetsData] = await Promise.all([
+      const [sumData, grpData, matchData, meetsData, propsData, appsData] = await Promise.all([
         api.getDashboardSummary(),
         api.getGroups(),
         api.exploreRoommates({}),
         api.getSafeMeets(),
+        api.getMyProperties().catch(() => []),
+        api.getIncomingApplications().catch(() => []),
       ]);
       setSummary(sumData);
       setGroups(grpData);
+      setMyProperties(propsData);
+      setIncomingApplications(appsData);
+
       // Filter candidates looking for flat
       const lookingCandidates = matchData.filter(m => m.profile.housing_status === 'Need Flat & Roommate');
       setTopMatches(lookingCandidates.slice(0, 3));
@@ -106,9 +101,20 @@ export const FlatOwnerDashboard: React.FC<FlatOwnerDashboardProps> = ({ onNaviga
     }
   };
 
+  const handleApplicationDecision = async (appId: number, decision: 'accepted' | 'rejected') => {
+    setActionError(null);
+    try {
+      await api.decideApplication(appId, decision);
+      await fetchFlatData();
+    } catch (err: any) {
+      setActionError(err.message || "Failed to update application decision");
+    }
+  };
+
   useEffect(() => {
     fetchFlatData();
   }, []);
+
 
   const handleOpenComp = (match: RoommateMatch) => {
     setSelectedMatch(match);
@@ -277,8 +283,122 @@ export const FlatOwnerDashboard: React.FC<FlatOwnerDashboardProps> = ({ onNaviga
             </div>
           </Card>
 
+          {/* Incoming Tenant / Roommate Inquiries Section */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-[#F5F7FA] flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#00F0FF]" />
+                Incoming Flatmate Applications ({incomingApplications.length})
+              </h2>
+              <span className="text-xs font-mono text-[#929BAA]">
+                {incomingApplications.filter(a => a.status === 'pending').length} Awaiting Review
+              </span>
+            </div>
+
+            {actionError && (
+              <div className="p-3 mb-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{actionError}</span>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {incomingApplications.map((app) => {
+                const applicantName = app.applicant?.name || app.applicant_name || "Applicant";
+                const applicantAvatar = app.applicant?.avatar_url || app.applicant_avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80";
+                const applicantOccupation = app.applicant?.occupation || app.applicant_occupation || "Working Professional";
+                const applicantCompany = app.applicant?.company || app.applicant_company || "Verified Tech";
+                const budgetMax = app.proposed_budget || app.budget_max || 20000;
+                const trustScore = app.applicant?.trust_score || app.trust_score || 88;
+                const compScore = app.applicant?.compatibility_score || app.compatibility_score || 94;
+
+                return (
+                  <Card key={app.id} variant="glass" className="p-5 border-[#1E283A]">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={applicantAvatar}
+                          alt={applicantName}
+                          className="w-12 h-12 rounded-xl object-cover border border-[#1E283A]"
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-[#F5F7FA]">{applicantName}</h4>
+                            <span className="px-1.5 py-0.2 rounded bg-[#00F59B]/10 text-[#00F59B] text-[10px] font-mono flex items-center gap-0.5">
+                              <Sparkles className="w-3 h-3" /> {compScore}% AI Synergy
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#929BAA]">
+                            {applicantOccupation} • <span className="text-[#00F0FF]">{applicantCompany}</span>
+                          </p>
+                          <div className="flex items-center gap-3 text-[11px] font-mono text-[#5F697A] mt-1">
+                            <span>Proposed Rent: ₹{budgetMax.toLocaleString('en-IN')}/mo</span>
+                            <span>•</span>
+                            <span className="text-[#00F59B]">Trust: {trustScore}/100</span>
+                            {app.move_in_date && (
+                              <>
+                                <span>•</span>
+                                <span className="text-[#FFD600]">Move-in: {app.move_in_date}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Decision buttons */}
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        {app.status === 'pending' ? (
+                          <>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handleApplicationDecision(app.id, 'accepted')}
+                              className="text-xs px-3 py-1.5"
+                            >
+                              Accept
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleApplicationDecision(app.id, 'rejected')}
+                              className="text-xs text-rose-400 border-rose-500/30 hover:bg-rose-500/10 px-3 py-1.5"
+                            >
+                              Decline
+                            </Button>
+                          </>
+                        ) : (
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-mono font-bold capitalize ${
+                            app.status === 'accepted'
+                              ? 'bg-[#00F59B]/10 text-[#00F59B] border border-[#00F59B]/30'
+                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                          }`}>
+                            {app.status}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {app.message && (
+                      <div className="mt-3 pt-3 border-t border-[#1E283A] text-xs text-[#929BAA] bg-[#06080D]/40 p-2.5 rounded-lg">
+                        <span className="text-[#5F697A] font-mono">Intro: </span>
+                        "{app.message}"
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+
+              {incomingApplications.length === 0 && (
+                <div className="py-6 text-center text-xs text-[#929BAA] bg-[#111722] rounded-2xl border border-[#1E283A]">
+                  No incoming applications for your flat right now.
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Compatible Replacement Flatmates Recommendation Feed */}
           <div>
+
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-bold text-[#F5F7FA] flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#00F59B]" />

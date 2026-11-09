@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .database import engine, Base
 from .seed_data import seed_database
-from .routes import auth, profiles, matches, expenses, chat, verification, admin
+from .routes import auth, profiles, matches, expenses, chat, verification, admin, properties, applications
 
 # Initialize database schema
 Base.metadata.create_all(bind=engine)
@@ -31,6 +31,9 @@ app.include_router(expenses.router, prefix=settings.API_V1_STR)
 app.include_router(chat.router, prefix=settings.API_V1_STR)
 app.include_router(verification.router, prefix=settings.API_V1_STR)
 app.include_router(admin.router, prefix=settings.API_V1_STR)
+app.include_router(properties.router, prefix=settings.API_V1_STR)
+app.include_router(applications.router, prefix=settings.API_V1_STR)
+
 
 @app.on_event("startup")
 def startup_event():

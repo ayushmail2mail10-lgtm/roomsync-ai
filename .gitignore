@@ -28,3 +28,7 @@ build/
 # Operating system
 .DS_Store
 Thumbs.db
+
+# Local database backups
+*.backup
+*.backup_*

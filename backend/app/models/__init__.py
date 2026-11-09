@@ -3,6 +3,7 @@ from .profile import Profile
 from .verification import Verification, SafeMeet, ReportBlock
 from .expense import FlatGroup, FlatMember, Expense, ExpenseSplit, Settlement
 from .chat import Conversation, Message
+from .property import PropertyListing, RoomListing, PropertyApplication
 
 __all__ = [
     "User",
@@ -16,5 +17,9 @@ __all__ = [
     "ExpenseSplit",
     "Settlement",
     "Conversation",
-    "Message"
+    "Message",
+    "PropertyListing",
+    "RoomListing",
+    "PropertyApplication"
 ]
+

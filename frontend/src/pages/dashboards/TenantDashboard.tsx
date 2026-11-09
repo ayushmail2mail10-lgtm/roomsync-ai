@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
-import { DashboardSummary, FlatGroup, Expense, RoommateMatch, SafeMeet } from '../../types';
+import { DashboardSummary, FlatGroup, Expense, RoommateMatch, SafeMeet, PropertyListing, TenantApplication } from '../../types';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
@@ -42,6 +42,8 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ onNavigate, on
   const [topMatches, setTopMatches] = useState<RoommateMatch[]>([]);
   const [safeMeets, setSafeMeets] = useState<SafeMeet[]>([]);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [myApplications, setMyApplications] = useState<TenantApplication[]>([]);
+  const [availableProperties, setAvailableProperties] = useState<PropertyListing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modals
@@ -51,46 +53,20 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ onNavigate, on
   const [paymentData, setPaymentData] = useState<any>(null);
   const [isUpiOpen, setIsUpiOpen] = useState(false);
 
-  // Saved listings / Recommended verified rooms
-  const recommendedRooms = [
-    {
-      id: 301,
-      title: "HSR Layout Sector 2 - Skyline Green 3BHK",
-      room_type: "Private Master Bedroom with Balcony",
-      rent: 18000,
-      deposit: 50000,
-      city: "Bengaluru",
-      neighborhood: "HSR Layout Sector 2",
-      flatmate_name: "Arjun Mehta",
-      compatibility: 96,
-      image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80",
-      status: "Application Pending"
-    },
-    {
-      id: 302,
-      title: "Koramangala 4th Block - Prestige Oasis",
-      room_type: "Attached Bedroom with Bath",
-      rent: 21000,
-      deposit: 60000,
-      city: "Bengaluru",
-      neighborhood: "Koramangala",
-      flatmate_name: "Ananya Sharma",
-      compatibility: 92,
-      image: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=600&q=80",
-      status: "Saved Listing"
-    }
-  ];
-
   const fetchTenantData = async () => {
     try {
-      const [sumData, matchData, meetsData] = await Promise.all([
+      const [sumData, matchData, meetsData, appsData, propsData] = await Promise.all([
         api.getDashboardSummary(),
         api.exploreRoommates({}),
         api.getSafeMeets(),
+        api.getMyApplications().catch(() => []),
+        api.getProperties({ vacant_only: true }).catch(() => [])
       ]);
       setSummary(sumData);
       setTopMatches(matchData.slice(0, 3));
       setSafeMeets(meetsData);
+      setMyApplications(appsData);
+      setAvailableProperties(propsData.slice(0, 4));
     } catch (e) {
       console.error("Error fetching tenant dashboard data:", e);
     } finally {
@@ -101,6 +77,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ onNavigate, on
   useEffect(() => {
     fetchTenantData();
   }, []);
+
 
   const handleOpenComp = (match: RoommateMatch) => {
     setSelectedMatch(match);
@@ -274,59 +251,160 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ onNavigate, on
             </div>
           </div>
 
-          {/* Recommended Verified Rooms & Flats */}
+          {/* Section: My Submitted Rental Applications */}
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-bold text-[#F5F7FA] flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-[#00F0FF]" />
-                Saved & Recommended Rooms in {profile?.city || 'Bengaluru'}
+                My Rental & Room Applications ({myApplications.length})
               </h2>
+              <span className="text-xs font-mono text-[#929BAA]">
+                {myApplications.filter(a => a.status === 'pending').length} In Review
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {myApplications.map((app) => (
+                <Card key={app.id} variant="glass" className="p-4 border-[#1E283A]">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-[#F5F7FA]">{app.property_title}</h4>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold capitalize ${
+                          app.status === 'accepted'
+                            ? 'bg-[#00F59B]/10 text-[#00F59B] border border-[#00F59B]/30'
+                            : app.status === 'rejected'
+                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                            : 'bg-[#FFD600]/10 text-[#FFD600] border border-[#FFD600]/30'
+                        }`}>
+                          {app.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#929BAA] flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-[#00F59B]" />
+                        <span>{app.property_neighborhood}, {app.property_city}</span>
+                        {app.room_title && (
+                          <>
+                            <span>•</span>
+                            <span className="text-[#00F0FF]">{app.room_title}</span>
+                          </>
+                        )}
+                      </p>
+                      <div className="flex items-center gap-3 text-[11px] font-mono text-[#5F697A]">
+                        <span>Owner: {app.owner_name}</span>
+                        <span>•</span>
+                        <span>Offered Rent: ₹{(app.proposed_budget || app.property_monthly_rent || 0).toLocaleString('en-IN')}/mo</span>
+                        {app.move_in_date && (
+                          <>
+                            <span>•</span>
+                            <span className="text-[#FFD600]">Move-in: {app.move_in_date}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onNavigate?.('explore')}
+                        className="text-xs px-3 py-1.5"
+                      >
+                        Explore More Rooms
+                      </Button>
+                    </div>
+                  </div>
+
+                  {app.message && (
+                    <div className="mt-2.5 pt-2.5 border-t border-[#1E283A] text-xs text-[#929BAA] bg-[#06080D]/40 p-2 rounded-lg font-mono text-[11px]">
+                      Your cover note: "{app.message}"
+                    </div>
+                  )}
+                </Card>
+              ))}
+
+              {myApplications.length === 0 && (
+                <div className="py-6 text-center text-xs text-[#929BAA] bg-[#111722] rounded-2xl border border-[#1E283A] space-y-2">
+                  <p>You haven't submitted any room applications yet.</p>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => onNavigate?.('explore')}
+                    className="text-xs"
+                  >
+                    Browse Available Rooms & Flats
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recommended Verified Rooms & Available Flats */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-[#F5F7FA] flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#00F59B]" />
+                Available Rooms & Flats in {profile?.city || 'Bengaluru'}
+              </h2>
+              <button
+                onClick={() => onNavigate?.('explore')}
+                className="text-xs font-mono text-[#00F59B] hover:underline"
+              >
+                View All {availableProperties.length > 0 ? `(${availableProperties.length}+)` : ''} →
+              </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {recommendedRooms.map((room) => (
-                <Card key={room.id} variant="glass" className="overflow-hidden flex flex-col justify-between">
-                  <div>
-                    <div className="relative h-36 w-full overflow-hidden">
-                      <img
-                        src={room.image}
-                        alt={room.title}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute top-3 left-3">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-[#00F59B]/90 text-[#06080D]">
-                          {room.status}
-                        </span>
+              {availableProperties.map((prop) => {
+                const img = prop.image_urls && prop.image_urls.length > 0 ? prop.image_urls[0] : "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80";
+                return (
+                  <Card key={prop.id} variant="glass" className="overflow-hidden flex flex-col justify-between">
+                    <div>
+                      <div className="relative h-36 w-full overflow-hidden bg-[#0A0E17]">
+                        <img
+                          src={img}
+                          alt={prop.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-3 left-3 flex gap-1.5">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-[#00F59B]/90 text-[#06080D]">
+                            {prop.available_bedrooms} ROOM{prop.available_bedrooms > 1 ? 'S' : ''} VACANT
+                          </span>
+                        </div>
+                        <div className="absolute bottom-3 right-3 bg-[#06080D]/80 backdrop-blur-md px-2 py-0.5 rounded-lg border border-[#1E283A] text-xs font-bold text-[#00F59B] font-mono">
+                          ₹{prop.monthly_rent.toLocaleString('en-IN')}/mo
+                        </div>
                       </div>
-                      <div className="absolute bottom-3 right-3 bg-[#06080D]/80 backdrop-blur-md px-2 py-0.5 rounded-lg border border-[#1E283A] text-xs font-bold text-[#00F59B] font-mono">
-                        ₹{room.rent.toLocaleString('en-IN')}/mo
+
+                      <div className="p-4 space-y-1.5">
+                        <h4 className="text-xs font-bold text-[#F5F7FA] line-clamp-1">{prop.title}</h4>
+                        <p className="text-[11px] text-[#929BAA] line-clamp-1 flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-[#00F0FF]" />
+                          <span>{prop.neighborhood}, {prop.city}</span>
+                        </p>
+                        <div className="flex items-center justify-between text-[11px] font-mono pt-2 border-t border-[#1E283A] text-[#5F697A]">
+                          <span>{prop.furnishing_status}</span>
+                          <span className="text-[#00F0FF]">{prop.property_type}</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="p-4 space-y-1.5">
-                      <h4 className="text-xs font-bold text-[#F5F7FA] line-clamp-1">{room.title}</h4>
-                      <p className="text-[11px] text-[#929BAA] line-clamp-1">{room.room_type}</p>
-                      <div className="flex items-center justify-between text-[11px] font-mono pt-2 border-t border-[#1E283A] text-[#5F697A]">
-                        <span>With {room.flatmate_name}</span>
-                        <span className="text-[#00F59B] font-bold">{room.compatibility}% Match</span>
-                      </div>
+                    <div className="p-4 pt-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={() => onNavigate?.('explore')}
+                      >
+                        Explore & Apply
+                      </Button>
                     </div>
-                  </div>
-
-                  <div className="p-4 pt-0">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-xs"
-                      onClick={() => onNavigate?.('messages')}
-                    >
-                      Chat with Flatmate
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           </div>
+
 
         </div>
 
